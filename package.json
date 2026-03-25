@@ -8,19 +8,17 @@
     "start": "next start"
   },
   "dependencies": {
-    "form-data": "^4.0.0",
     "next": "14.2.3",
-    "node-fetch": "^3.3.2",
     "react": "^18",
     "react-dom": "^18"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260317.1",
-    "@types/node": "25.5.0",
-    "@types/react": "19.2.14",
+    "@types/node": "^22",
+    "@types/react": "^19",
     "autoprefixer": "^10.0.1",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
-    "typescript": "6.0.2"
+    "typescript": "^5"
   }
 }
