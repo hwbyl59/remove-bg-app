@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 
 export async function POST(req) {
-  // Check API Key
   const apiKey = process.env.REMOVE_BG_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
@@ -18,28 +17,31 @@ export async function POST(req) {
   }
 
   try {
-    // Get image from request (Next.js 14+ App Router)
     const formData = await req.formData();
     const imageFile = formData.get('image');
 
-    if (!imageFile) {
-      return NextResponse.json({ error: 'No image provided' }, { status: 400 });
+    if (!imageFile || imageFile.size === 0) {
+      return NextResponse.json(
+        { error: 'No image provided or file is empty.' },
+        { status: 400 }
+      );
     }
 
-    // Convert to Buffer for fetch
-    const arrayBuffer = await imageFile.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    // Build multipart/form-data for Remove.bg API
+    const body = new FormData();
+    body.append('image_file', imageFile, imageFile.name || 'input.jpg');
+    // Optional: set output format
+    body.append('size', 'auto');
 
-    // Call Remove.bg API
     const response = await fetch('https://api.remove.bg/v1.0/removebg', {
       method: 'POST',
       headers: {
         'X-Api-Key': apiKey,
+        // Do NOT set Content-Type here — fetch will set it with boundary automatically
       },
-      body: buffer,
+      body,
     });
 
-    // Handle Remove.bg errors
     if (response.status !== 200) {
       let errorMsg = `Remove.bg error: ${response.status}`;
       try {
@@ -51,7 +53,6 @@ export async function POST(req) {
       return NextResponse.json({ error: errorMsg }, { status: response.status });
     }
 
-    // Return processed image
     const resultBuffer = await response.arrayBuffer();
 
     return new NextResponse(Buffer.from(resultBuffer), {

@@ -1,0 +1,12 @@
+# Cloudflare Pages configuration
+# https://developers.cloudflare.com/pages/platform/build-configuration/
+
+name = "remove-bg-app"
+compatibility_date = "2024-01-01"
+
+# Pages Functions directory
+main = "./functions"
+
+# Environment variables ( Secrets managed via Cloudflare Dashboard )
+# Add via: Cloudflare Dashboard → Pages → remove-bg-app → Settings → Environment Variables
+# Variable: REMOVE_BG_API_KEY  (type: Secret)
