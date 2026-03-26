@@ -1,10 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  api: {
-    bodyParser: {
-      sizeLimit: '12mb',
-    },
-  },
+  output: 'export',
   images: {
     unoptimized: true,
   },
