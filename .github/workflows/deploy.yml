@@ -19,6 +19,12 @@ jobs:
 
       - run: npm run build
 
+      - name: Create Pages project if not exists
+        run: npx wrangler pages project create remove-bg-app --production-branch=master || true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: 88827bc3bef2f08801ae94c1e2a99f98
+
       - name: Deploy to Cloudflare Pages
         run: npx wrangler pages deploy out --project-name=remove-bg-app
         env:
