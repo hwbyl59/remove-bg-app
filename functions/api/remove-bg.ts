@@ -1,6 +1,8 @@
-import type { APIHandler } from '@cloudflare/workers-types';
+interface Env {
+  REMOVE_BG_API_KEY: string;
+}
 
-export const onRequest: APIHandler = async ({ request, env }) => {
+export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
   const apiKey = env.REMOVE_BG_API_KEY;
 
   if (!apiKey) {
