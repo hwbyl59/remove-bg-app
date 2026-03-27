@@ -23,4 +23,4 @@ jobs:
         run: npx wrangler pages deploy out --project-name=remove-bg-app
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_ACCOUNT_ID: 88827bc3bef2f08801ae94c1e2a99f98
