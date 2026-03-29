@@ -28,6 +28,7 @@ export default function Home() {
       size: 'medium',
       text: 'signin_with',
       shape: 'rectangular',
+      locale: 'en',
     });
   }, []);
 
