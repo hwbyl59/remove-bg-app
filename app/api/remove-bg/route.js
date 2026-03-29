@@ -19,6 +19,7 @@ export async function POST(req) {
   try {
     const formData = await req.formData();
     const imageFile = formData.get('image');
+    // googleToken is accepted but not enforced in local dev (no KV available)
 
     if (!imageFile || imageFile.size === 0) {
       return NextResponse.json(

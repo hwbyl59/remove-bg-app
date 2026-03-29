@@ -2,3 +2,7 @@
 name = "remove-bg-app"
 compatibility_date = "2024-01-01"
 pages_build_output_dir = "out"
+
+[[kv_namespaces]]
+binding = "USAGE_KV"
+id = "743a3b1efd994abe8ae9b69ffd9ecf7a"
