@@ -6,3 +6,13 @@ pages_build_output_dir = "out"
 [[kv_namespaces]]
 binding = "USAGE_KV"
 id = "743a3b1efd994abe8ae9b69ffd9ecf7a"
+
+# Secrets (set via `npx wrangler pages secret put <NAME>`):
+#   REMOVE_BG_API_KEY  — Remove.bg API key
+#   PAYPAL_CLIENT_ID   — PayPal REST app Client ID
+#   PAYPAL_SECRET      — PayPal REST app Secret
+#   PAYPAL_SANDBOX     — "true" for sandbox testing, "false" for production
+#
+# KV keys used by the credits system:
+#   credits:{googleSub}          — purchased credit balance (no TTL)
+#   paypal_captured:{orderId}    — idempotency marker (30-day TTL)

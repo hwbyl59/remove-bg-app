@@ -29,6 +29,32 @@ function parseBase64Image(dataUrl: string): File {
   return new File([bytes], 'input.jpg', { type: 'image/jpeg' });
 }
 
+async function proxyToRemoveBg(
+  apiKey: string,
+  imageFile: File
+): Promise<{ ok: false; status: number; error: string } | { ok: true; buffer: ArrayBuffer }> {
+  const form = new FormData();
+  form.append('image_file', imageFile, imageFile.name || 'input.jpg');
+  form.append('size', 'auto');
+
+  const response = await fetch('https://api.remove.bg/v1.0/removebg', {
+    method: 'POST',
+    headers: { 'X-Api-Key': apiKey },
+    body: form,
+  });
+
+  if (response.status !== 200) {
+    let errorMsg = `Remove.bg error: ${response.status}`;
+    try {
+      const errBody = await response.json<{ errors?: Array<{ title?: string }> }>();
+      if (errBody.errors?.[0]?.title) errorMsg = errBody.errors[0].title!;
+    } catch (_) {}
+    return { ok: false, status: response.status, error: errorMsg };
+  }
+
+  return { ok: true, buffer: await response.arrayBuffer() };
+}
+
 export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
   const apiKey = env.REMOVE_BG_API_KEY;
 
@@ -83,60 +109,78 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
     if (googleToken) userId = await verifyGoogleToken(googleToken);
 
     const isLoggedIn = !!userId;
-    const limit = isLoggedIn ? USER_LIMIT : ANON_LIMIT;
+
+    // Paid credits path — logged-in users with a positive credit balance skip daily limits
+    if (isLoggedIn) {
+      const creditsKey = `credits:${userId}`;
+      const currentCredits = parseInt((await env.USAGE_KV.get(creditsKey)) ?? '0', 10);
+
+      if (currentCredits > 0) {
+        try {
+          const result = await proxyToRemoveBg(apiKey, imageFile);
+          if (!result.ok) {
+            return new Response(
+              JSON.stringify({ error: result.error }),
+              { status: result.status, headers: { 'Content-Type': 'application/json' } }
+            );
+          }
+          const newCredits = currentCredits - 1;
+          await env.USAGE_KV.put(creditsKey, String(newCredits));
+          return new Response(result.buffer, {
+            status: 200,
+            headers: {
+              'Content-Type': 'image/png',
+              'Content-Disposition': 'inline; filename="no-bg.png"',
+              'Cache-Control': 'no-store',
+              'X-Credits-Remaining': String(newCredits),
+            },
+          });
+        } catch (err) {
+          console.error('[/api/remove-bg] credits path', err);
+          return new Response(
+            JSON.stringify({ error: 'Internal server error: ' + (err as Error).message }),
+            { status: 500, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+      }
+    }
+
+    // Free daily uses path — logged-in users (no credits left) and anonymous
     const ip =
       request.headers.get('CF-Connecting-IP') ??
       request.headers.get('X-Forwarded-For')?.split(',')[0]?.trim() ??
       'unknown';
     const today = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD" UTC
+    const limit = isLoggedIn ? USER_LIMIT : ANON_LIMIT;
     const kvKey = isLoggedIn ? `user:${userId}:${today}` : `anon:${ip}:${today}`;
-
     const count = parseInt((await env.USAGE_KV.get(kvKey)) ?? '0', 10);
 
     if (count >= limit) {
       return new Response(
         JSON.stringify({
           error: isLoggedIn
-            ? `You've used all ${USER_LIMIT} free uses.`
+            ? `You've used all ${USER_LIMIT} free uses. Buy credits to continue.`
             : `Sign in with Google for ${USER_LIMIT} more free uses.`,
           requiresLogin: !isLoggedIn,
+          requiresCredits: isLoggedIn,
         }),
         { status: 429, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
-    // Proxy to Remove.bg
-    const form = new FormData();
-    form.append('image_file', imageFile, imageFile.name || 'input.jpg');
-    form.append('size', 'auto');
-
     try {
-      const response = await fetch('https://api.remove.bg/v1.0/removebg', {
-        method: 'POST',
-        headers: { 'X-Api-Key': apiKey },
-        body: form,
-      });
-
-      if (response.status !== 200) {
-        let errorMsg = `Remove.bg error: ${response.status}`;
-        try {
-          const errBody = await response.json<{ errors?: Array<{ title?: string }> }>();
-          if (errBody.errors?.[0]?.title) errorMsg = errBody.errors[0].title!;
-        } catch (_) {}
+      const result = await proxyToRemoveBg(apiKey, imageFile);
+      if (!result.ok) {
         return new Response(
-          JSON.stringify({ error: errorMsg }),
-          { status: response.status, headers: { 'Content-Type': 'application/json' } }
+          JSON.stringify({ error: result.error }),
+          { status: result.status, headers: { 'Content-Type': 'application/json' } }
         );
       }
-
-      // Success — increment usage count
       const newCount = count + 1;
       await env.USAGE_KV.put(kvKey, String(newCount), {
-        expirationTtl: 2 * 86400, // expire after 2 days so old keys don't accumulate
+        expirationTtl: 2 * 86400,
       });
-
-      const resultBuffer = await response.arrayBuffer();
-      return new Response(resultBuffer, {
+      return new Response(result.buffer, {
         status: 200,
         headers: {
           'Content-Type': 'image/png',
@@ -155,31 +199,15 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
   }
 
   // Local dev path — no KV available, no enforcement
-  const form = new FormData();
-  form.append('image_file', imageFile, imageFile.name || 'input.jpg');
-  form.append('size', 'auto');
-
   try {
-    const response = await fetch('https://api.remove.bg/v1.0/removebg', {
-      method: 'POST',
-      headers: { 'X-Api-Key': apiKey },
-      body: form,
-    });
-
-    if (response.status !== 200) {
-      let errorMsg = `Remove.bg error: ${response.status}`;
-      try {
-        const errBody = await response.json<{ errors?: Array<{ title?: string }> }>();
-        if (errBody.errors?.[0]?.title) errorMsg = errBody.errors[0].title!;
-      } catch (_) {}
+    const result = await proxyToRemoveBg(apiKey, imageFile);
+    if (!result.ok) {
       return new Response(
-        JSON.stringify({ error: errorMsg }),
-        { status: response.status, headers: { 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: result.error }),
+        { status: result.status, headers: { 'Content-Type': 'application/json' } }
       );
     }
-
-    const resultBuffer = await response.arrayBuffer();
-    return new Response(resultBuffer, {
+    return new Response(result.buffer, {
       status: 200,
       headers: {
         'Content-Type': 'image/png',
