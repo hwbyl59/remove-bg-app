@@ -86,7 +86,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       });
     }
 
-    const sandbox = env.PAYPAL_SANDBOX !== 'false';
+    const sandbox = env.PAYPAL_SANDBOX === 'true';
     const baseUrl = sandbox
       ? 'https://api-m.sandbox.paypal.com'
       : 'https://api-m.paypal.com';
